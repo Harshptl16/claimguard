@@ -1,0 +1,8 @@
+<Project>
+  <!-- Applies to every project: treat warnings as errors and run the built-in .NET analyzers. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+</Project>

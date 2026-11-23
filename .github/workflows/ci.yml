@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least privilege: jobs only get read access unless they ask for more.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Third-party actions are pinned to exact release tags, never moving tags like @master.
+# Sprint 3 task: pin each one to a full commit SHA (see docs/adr/0002-pin-ci-actions.md).
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      # Software composition analysis: fail if any direct or transitive NuGet package has a known vulnerability.
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then
+            echo "::error::Vulnerable NuGet packages found. Update them and log the finding in docs/vuln-register.md."
+            exit 1
+          fi
+      - run: dotnet build --no-restore -c Release
+      - run: dotnet test --no-build -c Release --collect:"XPlat Code Coverage" --results-directory ./test-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results
+
+  secrets-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # scan full history, not just the last commit
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v5
+      - run: semgrep scan --config p/csharp --config p/secrets --config p/dockerfile --error --metrics=off
+
+  container-scan:
+    name: Container image scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t claimguard-api:${{ github.sha }} .
+      # v0.35.0+ only: tags 0.0.1–0.34.2 were hijacked in the March 2026 supply-chain attack (CVE-2026-33634).
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: claimguard-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"   # fail the build on high or critical findings
+
+  # Sprint 3 adds: OWASP ZAP API scan against the running container, then deploy to Azure.

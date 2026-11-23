@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ClaimGuard.Api/ClaimGuard.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ClaimGuard.IntegrationTests/ClaimGuard.IntegrationTests.csproj" />
+    <Project Path="tests/ClaimGuard.UnitTests/ClaimGuard.UnitTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+.git/
+.github/
+docs/
+tests/
+etl/
+.env
+*.md
+!README.md
